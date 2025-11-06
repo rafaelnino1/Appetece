@@ -184,8 +184,7 @@
       return items;
     }
 
-    // Aproximación de bounding box de la zona solicitada (norte de Bogotá)
-    // lat: 4.62–4.74, lng: -74.09–-74.02 (mock razonable para demo)
+    // Bounding box aproximado para la zona solicitada
     const BBOX = { latMin: 4.62, latMax: 4.74, lngMin: -74.09, lngMax: -74.02 };
 
     function makeRestaurants(n=100){
@@ -203,7 +202,7 @@
         const rating = Math.round((3.8 + r()*1.2)*10)/10;
         const menu = genMenu('rest'+i);
         // Horario simple (10:00–22:00) y probabilidad de cerrado al azar (para demo)
-        const openHour = 10, closeHour = 22; // local
+        const openHour = 10, closeHour = 22;
         const randomClosed = r() < 0.08; // 8% cerrado temporalmente
         list.push({ id:'rest-'+i, name, cuisine, address, lat, lng, priceLevel, rating, menu, openHour, closeHour, randomClosed });
       }
@@ -219,7 +218,7 @@
       credits: Number(localStorage.getItem('appetece_credits') || 0),
     };
 
-    function nowBogota(){ return new Date(); /* el navegador ya está en hora local */ }
+    function nowBogota(){ return new Date(); }
     function isOpen(r){
       if (r.randomClosed) return false;
       const h = nowBogota().getHours();
@@ -227,8 +226,8 @@
     }
 
     function updateWallet(){
-      $('#walletAmount').textContent = fmtCOP(state.credits);
-      $('#walletAmount2').textContent = fmtCOP(state.credits);
+      document.getElementById('walletAmount').textContent = fmtCOP(state.credits);
+      document.getElementById('walletAmount2').textContent = fmtCOP(state.credits);
       localStorage.setItem('appetece_credits', String(state.credits));
     }
 
@@ -274,7 +273,7 @@
     }
 
     function renderCuisineOptions(){
-      const sel = $('#cuisineSelect');
+      const sel = document.getElementById('cuisineSelect');
       CUISINES.forEach(c=> sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
       sel.value = state.cuisine;
     }
@@ -354,14 +353,16 @@
           ctrls.innerHTML = `<button class=\"px-2 py-1 rounded border\">-</button><button class=\"px-2 py-1 rounded border\">+</button>`;
           ctrls.children[0].addEventListener('click', ()=> dec(it.id));
           ctrls.children[1].addEventListener('click', ()=> inc(it.id));
-          row.appendChild(ctrlls);
+          row.appendChild(ctrls);
           list.appendChild(row);
         });
       }
       const { subtotal, externalPay, creditEarn } = computeTotals();
       document.getElementById('subtotalLabel').textContent = fmtCOP(subtotal);
       document.getElementById('creditEarnedLabel').textContent = fmtCOP(creditEarn);
-      document.getElementById('payBtn').disabled = subtotal === 0 || (getPayMethod()==='credits' && state.credits < subtotal);
+      // Deshabilitar si no hay subtotal o si elige "créditos" y no alcanza el saldo
+      const disable = subtotal === 0 || (getPayMethod()==='credits' && state.credits < subtotal);
+      document.getElementById('payBtn').disabled = disable;
     }
 
     function payNow(){

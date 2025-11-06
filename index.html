@@ -6,10 +6,15 @@
   <title>Appetece — 20% Wallet (MVP)</title>
   <meta name="description" content="Appetece: mapa de restaurantes en Bogotá con billetera virtual y 20% de crédito en cada pago." />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet (mapa real con zoom) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <style>
-    /* Tipografía base y mejoras visuales */
     html { scroll-behavior: smooth; }
     .shadow-soft { box-shadow: 0 8px 24px rgba(2, 6, 23, 0.06); }
+    #map { height: 22rem; }
+    .leaflet-tooltip.appetece { background: #0ea5e9; color: #fff; border: none; border-radius: 8px; padding: 6px 8px; box-shadow: 0 6px 18px rgba(2,6,23,.18); }
+    .leaflet-tooltip.appetece:before { border-top-color: #0ea5e9; }
   </style>
 </head>
 <body class="min-h-screen bg-sky-50 text-slate-800">
@@ -32,41 +37,24 @@
   </header>
 
   <main class="mx-auto max-w-7xl px-4 py-6 grid lg:grid-cols-3 gap-6">
-    <!-- Left: Mapa + filtros -->
+    <!-- Left: Mapa real + filtros -->
     <section class="lg:col-span-2 space-y-4">
       <div class="border border-sky-100 rounded-2xl bg-white shadow-soft">
         <div class="p-4 border-b">
           <div class="flex items-center gap-2 text-slate-800 font-semibold">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5 text-indigo-600"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5 9 6.343 9 8s1.343 3 3 3Zm0 0v10"/></svg>
-            <h2 class="text-base">Mapa (Esquema)</h2>
+            <h2 class="text-base">Mapa</h2>
           </div>
-          <p class="text-sm text-slate-600 mt-1">Haz clic en un punto para ver el restaurante. Top: Calle 127 · Bottom: Calle 52 · Left: Cra 1 · Right: Autopista Norte.</p>
+          <p class="text-sm text-slate-600 mt-1">Haz zoom y pasa el mouse por los puntos para ver si está abierto, el descuento y el nombre.</p>
         </div>
         <div class="p-4">
-          <div class="relative mx-auto w-full max-w-4xl">
-            <svg id="mapSvg" viewBox="0 0 100 100" class="w-full h-72 rounded-2xl bg-white border border-sky-100">
-              <!-- Grid -->
-              <g stroke="#e6f0ff" stroke-width="0.5">
-                <g id="vgrid"></g>
-                <g id="hgrid"></g>
-              </g>
-              <!-- Points -->
-              <g id="mapPoints"></g>
-              <!-- Axis labels -->
-              <text x="2" y="4" font-size="3" fill="#0f172a">Calle 127</text>
-              <text x="2" y="98" font-size="3" fill="#0f172a">Calle 52</text>
-              <text x="1" y="8" font-size="3" fill="#0f172a" transform="rotate(-90 2,8)">Cra 1</text>
-              <text x="98" y="8" font-size="3" fill="#0f172a" transform="rotate(-90 98,8)">Autopista Norte</text>
-            </svg>
-          </div>
-
+          <div id="map" class="rounded-2xl overflow-hidden border border-sky-100"></div>
           <div class="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <label class="relative flex-1">
               <span class="sr-only">Buscar</span>
               <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7" stroke-width="2"/><path d="m21 21-3.5-3.5" stroke-width="2"/></svg>
               <input id="searchInput" class="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Buscar por nombre o dirección"/>
             </label>
-
             <label>
               <select id="cuisineSelect" class="w-full sm:w-56 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="Todas">Todas las cocinas</option>
@@ -83,14 +71,14 @@
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5 text-indigo-600"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
               Restaurantes <span id="countLabel" class="text-slate-500 font-normal"></span>
             </h3>
-            <p class="text-sm text-slate-600">Todos con <span class="font-semibold text-emerald-700">20% acreditado</span> a tu billetera al pagar.</p>
+            <p class="text-sm text-slate-600">Todos con <span class="font-semibold text-emerald-700">20% acreditado</span> a tu billetera al pagar (aplica sobre el monto pagado con medios externos).</p>
           </div>
         </div>
         <div id="restaurantsGrid" class="p-4 grid md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       </div>
     </section>
 
-    <!-- Right: Menú, carrito, billetera -->
+    <!-- Right: Menú, carrito, billetera y pago -->
     <aside class="space-y-4">
       <div class="border border-emerald-100 rounded-2xl bg-white shadow-soft">
         <div class="p-4 border-b">
@@ -108,7 +96,7 @@
             </div>
             <div class="text-right text-sm text-emerald-700">
               <div class="font-medium">Recompensa fija</div>
-              <div>+20% por cada pago</div>
+              <div>+20% por cada pago externo</div>
             </div>
           </div>
         </div>
@@ -131,23 +119,33 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M7 7v10m10-10v10M7 11h10M7 15h10"/></svg>
             Tu Pedido
           </h3>
-          <p class="text-sm text-slate-600">Al pagar, recibes <span class="font-semibold text-emerald-700">20% en créditos</span>.</p>
+          <p class="text-sm text-slate-600">El 20% se acredita solo sobre el monto pagado con otros medios (no con créditos).</p>
         </div>
         <div id="cartList" class="p-4 space-y-3"></div>
+        <div class="px-4 space-y-3">
+          <fieldset class="rounded-lg border p-3">
+            <legend class="text-sm font-medium">Método de pago</legend>
+            <div class="mt-2 grid grid-cols-1 gap-2 text-sm">
+              <label class="inline-flex items-center gap-2"><input type="radio" name="payMethod" value="credits"/> <span>Usar <b>solo créditos</b></span></label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="payMethod" value="external" checked/> <span>Usar <b>otro medio</b> (tarjeta, efectivo, etc.)</span></label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="payMethod" value="mixed"/> <span><b>Mixto</b>: usar mis créditos y completar con otro medio</span></label>
+            </div>
+          </fieldset>
+        </div>
         <div class="p-4 pt-0 space-y-3">
           <div class="w-full rounded-lg bg-sky-50 border border-sky-100 p-3 text-sm flex items-center justify-between">
             <span>Subtotal</span>
             <span id="subtotalLabel" class="font-semibold">$0</span>
           </div>
           <div class="w-full rounded-lg bg-emerald-50 border border-emerald-100 p-3 text-sm flex items-center justify-between">
-            <span>Crédito a recibir (20%)</span>
+            <span>Crédito a recibir (20% sobre pago externo)</span>
             <span id="creditEarnedLabel" class="font-semibold text-emerald-700">$0</span>
           </div>
           <div class="flex gap-2 w-full">
             <button id="clearBtn" class="w-1/3 inline-flex items-center justify-center rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">Vaciar</button>
             <button id="payBtn" class="w-2/3 inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" disabled>Pagar ahora</button>
           </div>
-          <p class="text-xs text-slate-500 text-center w-full">El 20% se acredita inmediatamente a tu billetera virtual al confirmar el pago.</p>
+          <p class="text-xs text-slate-500 text-center w-full">En pago con créditos no se generan créditos nuevos. En pago mixto, el 20% aplica al monto no cubierto por créditos.</p>
         </div>
       </div>
     </aside>
@@ -156,7 +154,7 @@
   <footer class="mx-auto max-w-7xl px-4 pb-10">
     <div class="border border-slate-200 rounded-2xl bg-white">
       <div class="p-4 text-xs text-slate-500">
-        Appetece — MVP con datos ficticios y mapa esquemático. Zona: Calle 127 a 52 y Cra 1 a Autopista Norte. Promoción: 20% de crédito al pagar en cualquier restaurante.
+        Appetece — MVP con datos ficticios y mapa real (OpenStreetMap). Zona: Calle 127 a 52 y Cra 1 a Autopista Norte. Promoción: 20% de crédito al pagar.
       </div>
     </div>
   </footer>
@@ -164,214 +162,249 @@
   <script>
     // ===== Utilidades =====
     const $ = (q) => document.querySelector(q);
-    const $$ = (q) => Array.from(document.querySelectorAll(q));
     const fmtCOP = (n) => n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
-
-    function seededRandom(seed) {
-      let h = 2166136261 >>> 0;
-      for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
-      return () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 2 ** 32;
-    }
+    function seededRandom(seed) { let h = 2166136261 >>> 0; for (let i=0;i<seed.length;i++){ h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619);} return () => ((h = Math.imul(h ^ (h>>>15), 2246822507) ^ Math.imul(h ^ (h>>>13), 3266489909)) >>> 0) / 2**32; }
     const rndPick = (arr, r) => arr[Math.floor(r() * arr.length)];
 
+    // Catálogos
     const CUISINES = ["Colombiana","Italiana","Peruana","Mexicana","Japonesa","Parrilla","Vegetariana","Vegana","Mediterránea","Árabe","India","Tailandesa","Mariscos","Fusión","Café & Brunch"];
     const PREFIXES = ["Casa","La","El","Don","Doña","Grupo","Vecchia","Sazón","Andes","Sierra","Sabores","Monte","Río","Barrio","Azul","Verde","Brasa","Piedra","Botánica","Paladar"];
     const SUFFIXES = ["Andina","Bogotá","Norte","127","52","Gourmet","Urbano","Criollo","del Valle","Express","Trattoria","Cevichería","Taquería","Bistró","Parrilla","Nikkei","Café","Pan y Sal","Cocina","Sabores"];
 
-    function genMenu(seed) {
+    function genMenu(seed){
       const r = seededRandom(seed);
-      const bases = ["Bandeja","Pasta","Ceviche","Taco","Ramen","Curry","Ensalada","Sándwich","Hamburguesa","Arepa","Sopa","Pescado","Pollo","Costillas","Paella","Falafel"];
-      const styles = ["de la casa","andino","clásico","picante","a la brasa","trufa","limón y cilantro","misoyaki","verde","ahumado","mar y tierra","vegano"];
-      const drinks = ["Limonada de coco","Jugo natural","Soda artesanal","Cerveza local","Té frío","Café de origen"];
-      const desserts = ["Postre de maracuyá","Flan de café","Tres leches","Helado artesanal","Brownie tibio"];
-      const items = [];
-      for (let i = 0; i < 5; i++) {
-        const name = `${rndPick(bases, r)} ${rndPick(styles, r)}`;
-        const price = Math.round((25000 + r() * 55000) / 100) * 100; // 25k - 80k
-        items.push({ id: `${seed}-m${i}`, name, price });
-      }
-      items.push({ id: `${seed}-d1`, name: rndPick(drinks, r), price: 12000 + Math.round(r() * 8000 / 100) * 100 });
-      items.push({ id: `${seed}-d2`, name: rndPick(desserts, r), price: 16000 + Math.round(r() * 14000 / 100) * 100 });
+      const bases=["Bandeja","Pasta","Ceviche","Taco","Ramen","Curry","Ensalada","Sándwich","Hamburguesa","Arepa","Sopa","Pescado","Pollo","Costillas","Paella","Falafel"];
+      const styles=["de la casa","andino","clásico","picante","a la brasa","trufa","limón y cilantro","misoyaki","verde","ahumado","mar y tierra","vegano"];
+      const drinks=["Limonada de coco","Jugo natural","Soda artesanal","Cerveza local","Té frío","Café de origen"];
+      const desserts=["Postre de maracuyá","Flan de café","Tres leches","Helado artesanal","Brownie tibio"];
+      const items=[];
+      for(let i=0;i<5;i++){ const name=`${rndPick(bases,r)} ${rndPick(styles,r)}`; const price=Math.round((25000+r()*55000)/100)*100; items.push({id:`${seed}-m${i}`,name,price}); }
+      items.push({id:`${seed}-d1`,name:rndPick(drinks,r),price:12000+Math.round(r()*8000/100)*100});
+      items.push({id:`${seed}-d2`,name:rndPick(desserts,r),price:16000+Math.round(r()*14000/100)*100});
       return items;
     }
 
-    function makeRestaurants(n=100) {
-      const list = [];
-      for (let i = 1; i <= n; i++) {
-        const rP = seededRandom('p'+i), rS = seededRandom('s'+i), r = seededRandom('r'+i);
-        const name = `${rndPick(PREFIXES, rP)} ${rndPick(SUFFIXES, rS)}`;
-        const cuisine = rndPick(CUISINES, r);
-        const x = Math.round(r() * 100); // 0..100
-        const y = Math.round(r() * 100); // 0..100
-        const calle = 127 - Math.round((75 * y) / 100);
-        const carrera = 1 + Math.round((29 * x) / 100);
-        const address = `Calle ${calle} # ${carrera}-${Math.floor(1 + r() * 80)}`;
-        const priceLevel = 1 + Math.floor(r() * 3);
-        const rating = Math.round((3.8 + r() * 1.2) * 10) / 10;
+    // Aproximación de bounding box de la zona solicitada (norte de Bogotá)
+    // lat: 4.62–4.74, lng: -74.09–-74.02 (mock razonable para demo)
+    const BBOX = { latMin: 4.62, latMax: 4.74, lngMin: -74.09, lngMax: -74.02 };
+
+    function makeRestaurants(n=100){
+      const list=[];
+      for(let i=1;i<=n;i++){
+        const rP=seededRandom('p'+i), rS=seededRandom('s'+i), r=seededRandom('r'+i);
+        const name = `${rndPick(PREFIXES,rP)} ${rndPick(SUFFIXES,rS)}`;
+        const cuisine = rndPick(CUISINES,r);
+        const lat = BBOX.latMin + r()*(BBOX.latMax-BBOX.latMin);
+        const lng = BBOX.lngMin + r()*(BBOX.lngMax-BBOX.lngMin);
+        const calle = 52 + Math.round(r()*75); // 52–127 aprox para la dirección textual
+        const carrera = 1 + Math.round(r()*30);
+        const address = `Calle ${calle} # ${carrera}-${Math.floor(1+r()*80)}`;
+        const priceLevel = 1 + Math.floor(r()*3);
+        const rating = Math.round((3.8 + r()*1.2)*10)/10;
         const menu = genMenu('rest'+i);
-        list.push({ id: 'rest-'+i, name, cuisine, address, x, y, priceLevel, rating, menu });
+        // Horario simple (10:00–22:00) y probabilidad de cerrado al azar (para demo)
+        const openHour = 10, closeHour = 22; // local
+        const randomClosed = r() < 0.08; // 8% cerrado temporalmente
+        list.push({ id:'rest-'+i, name, cuisine, address, lat, lng, priceLevel, rating, menu, openHour, closeHour, randomClosed });
       }
       return list;
     }
 
-    // ===== Estado de la app =====
     const state = {
       restaurants: makeRestaurants(100),
       query: '',
       cuisine: 'Todas',
       selectedId: null,
-      cart: [], // {id, name, price, qty, restId}
+      cart: [],
       credits: Number(localStorage.getItem('appetece_credits') || 0),
     };
 
-    // ===== Render helpers =====
-    function updateWallet() {
+    function nowBogota(){ return new Date(); /* el navegador ya está en hora local */ }
+    function isOpen(r){
+      if (r.randomClosed) return false;
+      const h = nowBogota().getHours();
+      return h >= r.openHour && h < r.closeHour;
+    }
+
+    function updateWallet(){
       $('#walletAmount').textContent = fmtCOP(state.credits);
       $('#walletAmount2').textContent = fmtCOP(state.credits);
       localStorage.setItem('appetece_credits', String(state.credits));
     }
 
-    function renderGridLines() {
-      const vg = $('#vgrid'); const hg = $('#hgrid');
-      vg.innerHTML = ''; hg.innerHTML = '';
-      [10,20,30,40,50,60,70,80,90].forEach(g => {
-        vg.insertAdjacentHTML('beforeend', `<line x1="${g}" y1="0" x2="${g}" y2="100" />`);
-        hg.insertAdjacentHTML('beforeend', `<line x1="0" y1="${g}" x2="100" y2="${g}" />`);
-      });
-    }
+    function priceDots(level){ return `<div class="flex gap-1">${[1,2,3].map(i=>`<span class="h-2 w-2 rounded-full ${i<=level?'bg-emerald-600':'bg-emerald-200'}"></span>`).join('')}</div>`; }
 
-    function priceDots(level) {
-      return `<div class="flex gap-1">${[1,2,3].map(i => `<span class="h-2 w-2 rounded-full ${i<=level? 'bg-emerald-600':'bg-emerald-200'}"></span>`).join('')}</div>`;
-    }
-
-    function filteredRestaurants() {
+    function filteredRestaurants(){
       const q = state.query.trim().toLowerCase();
-      return state.restaurants.filter(r => {
-        const byCuisine = state.cuisine === 'Todas' || r.cuisine === state.cuisine;
+      return state.restaurants.filter(r=>{
+        const byCuisine = state.cuisine==='Todas' || r.cuisine===state.cuisine;
         const byQuery = !q || r.name.toLowerCase().includes(q) || r.address.toLowerCase().includes(q);
         return byCuisine && byQuery;
       });
     }
 
-    function renderMapPoints() {
-      const g = $('#mapPoints');
-      g.innerHTML = '';
-      const list = filteredRestaurants();
-      list.forEach(r => {
-        const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-        circle.setAttribute('cx', r.x);
-        circle.setAttribute('cy', r.y);
-        circle.setAttribute('r', 1.8);
-        circle.setAttribute('fill', '#4f46e5');
-        circle.setAttribute('opacity', '0.85');
-        circle.style.cursor = 'pointer';
-        circle.addEventListener('click', () => selectRestaurant(r.id));
-        g.appendChild(circle);
+    // ==== MAPA REAL (Leaflet) ====
+    let map, markersLayer;
+    function initMap(){
+      map = L.map('map').setView([4.68, -74.06], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      markersLayer = L.layerGroup().addTo(map);
+      renderMarkers();
+    }
+
+    function renderMarkers(){
+      markersLayer.clearLayers();
+      filteredRestaurants().forEach(r=>{
+        const open = isOpen(r);
+        const marker = L.circleMarker([r.lat, r.lng], {
+          radius: 6,
+          weight: 1,
+          color: open ? '#16a34a' : '#ef4444',
+          fillColor: '#4f46e5',
+          fillOpacity: .8
+        });
+        marker.addTo(markersLayer);
+        const tipHtml = `<div class=\"text-xs\"><div class=\"font-semibold\">${r.name}</div><div>${open? '🟢 Abierto':'🔴 Cerrado'} · 20% de crédito</div></div>`;
+        marker.bindTooltip(tipHtml, { direction:'top', opacity:1, className:'appetece', sticky:true });
+        marker.on('click', ()=> selectRestaurant(r.id));
       });
     }
 
-    function renderCuisineOptions() {
+    function renderCuisineOptions(){
       const sel = $('#cuisineSelect');
-      CUISINES.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+      CUISINES.forEach(c=> sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
       sel.value = state.cuisine;
     }
 
-    function renderRestaurantsList() {
-      const grid = $('#restaurantsGrid');
+    function renderRestaurantsList(){
+      const grid = document.getElementById('restaurantsGrid');
       const list = filteredRestaurants();
-      $('#countLabel').textContent = `(${list.length})`;
+      document.getElementById('countLabel').textContent = `(${list.length})`;
       grid.innerHTML = '';
-      list.forEach(r => {
+      list.forEach(r=>{
+        const open = isOpen(r);
         const card = document.createElement('div');
         card.className = 'border rounded-xl p-4 hover:shadow-sm transition cursor-pointer border-slate-200';
         card.innerHTML = `
-          <div class=\"flex items-start justify-between\">\n            <div class=\"font-medium\">${r.name}</div>\n            <span class=\"inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700\">20% crédito</span>\n          </div>\n          <div class=\"mt-1 text-sm text-slate-600 flex items-center gap-1\">📍 ${r.address}</div>\n          <div class=\"mt-2 flex items-center justify-between\">\n            <div class=\"text-amber-600 text-sm\">★ <span class=\"font-medium\">${r.rating}</span></div>\n            ${priceDots(r.priceLevel)}\n            <span class=\"text-xs rounded-md bg-slate-100 px-2 py-0.5\">${r.cuisine}</span>\n          </div>`;
-        card.addEventListener('click', () => selectRestaurant(r.id));
+          <div class=\"flex items-start justify-between\">\n            <div class=\"font-medium\">${r.name}</div>\n            <span class=\"inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700\">20% crédito</span>\n          </div>\n          <div class=\"mt-1 text-sm text-slate-600\">📍 ${r.address}</div>\n          <div class=\"mt-2 flex items-center justify-between\">\n            <div class=\"text-sm\">${open? '🟢 Abierto':'🔴 Cerrado'}</div>\n            <div class=\"text-amber-600 text-sm\">★ <span class=\"font-medium\">${r.rating}</span></div>\n            ${priceDots(r.priceLevel)}\n            <span class=\"text-xs rounded-md bg-slate-100 px-2 py-0.5\">${r.cuisine}</span>\n          </div>`;
+        card.addEventListener('click', ()=> selectRestaurant(r.id));
         grid.appendChild(card);
       });
     }
 
-    function selectRestaurant(id) {
+    function selectRestaurant(id){
       state.selectedId = id;
-      const r = state.restaurants.find(x => x.id === id);
-      $('#selectedLabel').textContent = `${r.name} · ${r.cuisine}`;
-      const menuDiv = $('#menuList');
+      const r = state.restaurants.find(x=> x.id===id);
+      document.getElementById('selectedLabel').textContent = `${r.name} · ${r.cuisine}`;
+      const menuDiv = document.getElementById('menuList');
       menuDiv.innerHTML = '';
-      r.menu.forEach(m => {
+      r.menu.forEach(m=>{
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between rounded-lg border p-2 bg-white';
         row.innerHTML = `<div><div class=\"font-medium\">${m.name}</div><div class=\"text-sm text-slate-600\">${fmtCOP(m.price)}</div></div>`;
         const btn = document.createElement('button');
         btn.className = 'inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700';
         btn.textContent = 'Agregar';
-        btn.addEventListener('click', () => addToCart(m, r.id));
+        btn.addEventListener('click', ()=> addToCart(m, r.id));
         row.appendChild(btn);
         menuDiv.appendChild(row);
       });
-      if (window.innerWidth < 1024) {
-        setTimeout(() => document.getElementById('cartList').scrollIntoView({ behavior: 'smooth' }), 50);
-      }
+      if (window.innerWidth < 1024) setTimeout(()=> document.getElementById('cartList').scrollIntoView({behavior:'smooth'}), 50);
     }
 
-    function addToCart(item, restId) {
-      const idx = state.cart.findIndex(p => p.id === item.id);
-      if (idx >= 0) state.cart[idx].qty += 1;
-      else state.cart.push({ id: item.id, name: item.name, price: item.price, qty: 1, restId });
+    function addToCart(item, restId){
+      const idx = state.cart.findIndex(p=> p.id===item.id);
+      if (idx>=0) state.cart[idx].qty += 1; else state.cart.push({ id:item.id, name:item.name, price:item.price, qty:1, restId });
       renderCart();
     }
-    function inc(id) { const it = state.cart.find(p => p.id === id); if (it) { it.qty++; renderCart(); } }
-    function dec(id) { const i = state.cart.findIndex(p => p.id === id); if (i>=0) { if (state.cart[i].qty>1) state.cart[i].qty--; else state.cart.splice(i,1); renderCart(); } }
-    function clearCart() { state.cart = []; renderCart(); }
+    function inc(id){ const it = state.cart.find(p=>p.id===id); if (it){ it.qty++; renderCart(); } }
+    function dec(id){ const i = state.cart.findIndex(p=>p.id===id); if (i>=0){ if (state.cart[i].qty>1) state.cart[i].qty--; else state.cart.splice(i,1); renderCart(); } }
+    function clearCart(){ state.cart = []; renderCart(); }
 
-    function renderCart() {
-      const list = $('#cartList');
+    function getPayMethod(){ return document.querySelector('input[name="payMethod"]:checked')?.value || 'external'; }
+
+    function computeTotals(){
+      const subtotal = state.cart.reduce((s,it)=> s + it.price*it.qty, 0);
+      const method = getPayMethod();
+      let externalPay = 0, creditEarn = 0;
+      if (method==='external') { externalPay = subtotal; creditEarn = Math.round(externalPay * 0.20); }
+      else if (method==='credits') { externalPay = 0; creditEarn = 0; }
+      else { // mixed
+        const useCredits = Math.min(subtotal, state.credits);
+        externalPay = subtotal - useCredits;
+        creditEarn = Math.round(externalPay * 0.20);
+      }
+      return { subtotal, externalPay, creditEarn };
+    }
+
+    function renderCart(){
+      const list = document.getElementById('cartList');
       list.innerHTML = '';
-      if (state.cart.length === 0) {
-        list.innerHTML = '<div class="text-slate-500">Aún no has agregado productos.</div>';
-      } else {
-        state.cart.forEach(it => {
+      if (state.cart.length===0){ list.innerHTML = '<div class="text-slate-500">Aún no has agregado productos.</div>'; }
+      else {
+        state.cart.forEach(it=>{
           const row = document.createElement('div');
           row.className = 'flex items-center justify-between gap-2 rounded-lg border p-2 bg-white';
           row.innerHTML = `<div class=\"min-w-0\"><div class=\"font-medium truncate\">${it.name}</div><div class=\"text-sm text-slate-600\">${fmtCOP(it.price)} · x${it.qty}</div></div>`;
           const ctrls = document.createElement('div');
           ctrls.className = 'flex items-center gap-1';
           ctrls.innerHTML = `<button class=\"px-2 py-1 rounded border\">-</button><button class=\"px-2 py-1 rounded border\">+</button>`;
-          ctrls.children[0].addEventListener('click', () => dec(it.id));
-          ctrls.children[1].addEventListener('click', () => inc(it.id));
-          row.appendChild(ctrls);
+          ctrls.children[0].addEventListener('click', ()=> dec(it.id));
+          ctrls.children[1].addEventListener('click', ()=> inc(it.id));
+          row.appendChild(ctrlls);
           list.appendChild(row);
         });
       }
-      const subtotal = state.cart.reduce((s, it) => s + it.price * it.qty, 0);
-      const credit = Math.round(subtotal * 0.20);
-      $('#subtotalLabel').textContent = fmtCOP(subtotal);
-      $('#creditEarnedLabel').textContent = fmtCOP(credit);
-      $('#payBtn').disabled = subtotal === 0;
+      const { subtotal, externalPay, creditEarn } = computeTotals();
+      document.getElementById('subtotalLabel').textContent = fmtCOP(subtotal);
+      document.getElementById('creditEarnedLabel').textContent = fmtCOP(creditEarn);
+      document.getElementById('payBtn').disabled = subtotal === 0 || (getPayMethod()==='credits' && state.credits < subtotal);
     }
 
-    function payNow() {
-      const subtotal = state.cart.reduce((s, it) => s + it.price * it.qty, 0);
-      if (subtotal <= 0) return;
-      const credit = Math.round(subtotal * 0.20);
-      state.credits += credit;
+    function payNow(){
+      const method = getPayMethod();
+      const { subtotal, externalPay, creditEarn } = computeTotals();
+      if (subtotal<=0) return;
+      if (method==='credits'){
+        if (state.credits < subtotal) { alert('Saldo insuficiente en créditos. Prueba pago mixto o con otro medio.'); return; }
+        state.credits -= subtotal; // se descuenta del saldo
+        updateWallet();
+        clearCart();
+        alert(`Pago con créditos realizado ✅\nSe descontaron ${fmtCOP(subtotal)} de tu billetera.`);
+        return;
+      }
+      if (method==='mixed'){
+        const useCredits = Math.min(subtotal, state.credits);
+        state.credits -= useCredits; // descuenta créditos usados
+        state.credits += creditEarn; // acredita 20% del monto externo
+        updateWallet();
+        clearCart();
+        alert(`Pago mixto realizado ✅\nUsaste ${fmtCOP(useCredits)} en créditos y pagaste ${fmtCOP(externalPay)} con otro medio.\nSe acreditaron ${fmtCOP(creditEarn)} (20%) a tu billetera.`);
+        return;
+      }
+      // external
+      state.credits += creditEarn; // acredita 20%
       updateWallet();
       clearCart();
-      alert(`Pago realizado ✅\nSe acreditaron ${fmtCOP(credit)} (20%) a tu billetera.`);
+      alert(`Pago realizado ✅\nSe acreditaron ${fmtCOP(creditEarn)} (20%) a tu billetera.`);
     }
 
-    // ===== Eventos =====
-    $('#searchInput').addEventListener('input', (e) => { state.query = e.target.value; renderRestaurantsList(); renderMapPoints(); });
-    $('#cuisineSelect').addEventListener('change', (e) => { state.cuisine = e.target.value; renderRestaurantsList(); renderMapPoints(); });
-    $('#clearBtn').addEventListener('click', clearCart);
-    $('#payBtn').addEventListener('click', payNow);
+    // Eventos
+    document.getElementById('searchInput').addEventListener('input', (e)=>{ state.query=e.target.value; renderRestaurantsList(); renderMarkers(); });
+    document.getElementById('cuisineSelect').addEventListener('change', (e)=>{ state.cuisine=e.target.value; renderRestaurantsList(); renderMarkers(); });
+    document.getElementById('clearBtn').addEventListener('click', clearCart);
+    document.getElementById('payBtn').addEventListener('click', payNow);
+    document.querySelectorAll('input[name="payMethod"]').forEach(r=> r.addEventListener('change', renderCart));
 
-    // ===== Init =====
-    function init() {
+    // Init
+    function init(){
       updateWallet();
-      renderGridLines();
       renderCuisineOptions();
       renderRestaurantsList();
-      renderMapPoints();
+      initMap();
       if (state.restaurants[0]) selectRestaurant(state.restaurants[0].id);
       renderCart();
     }
@@ -379,4 +412,3 @@
   </script>
 </body>
 </html>
-

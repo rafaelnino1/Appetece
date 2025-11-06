@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Appetece — 20% Wallet (MVP)</title>
+  <meta name="description" content="Appetece: mapa de restaurantes en Bogotá con billetera virtual y 20% de crédito en cada pago." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tipografía base y mejoras visuales */
+    html { scroll-behavior: smooth; }
+    .shadow-soft { box-shadow: 0 8px 24px rgba(2, 6, 23, 0.06); }
+  </style>
+</head>
+<body class="min-h-screen bg-sky-50 text-slate-800">
+  <!-- Header -->
+  <header class="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200/60">
+    <div class="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6 text-indigo-600">
+          <path d="M7 2a1 1 0 0 0-1 1v5.586l-1.293-1.293a1 1 0 1 0-1.414 1.414l3 3A1 1 0 0 0 7 12h.01a1 1 0 0 0 .704-.293l3-3a1 1 0 1 0-1.414-1.414L8 8.586V3a1 1 0 0 0-1-1Zm10 0a1 1 0 0 1 1 1v5.586l1.293-1.293a1 1 0 1 1 1.414 1.414l-3 3A1 1 0 0 1 17 12h-.01a1 1 0 0 1-.704-.293l-3-3a1 1 0 1 1 1.414-1.414L16 8.586V3a1 1 0 0 1 1-1Z"/>
+        </svg>
+        <h1 class="text-xl font-semibold tracking-tight">Appetece · 20% Wallet</h1>
+        <span class="ml-2 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-700">Zona: Calle 127 ↔ 52 · Cra 1 ↔ Autopista Norte</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5 text-emerald-700"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2m3-5h-8m0 0 3-3m-3 3 3 3" /></svg>
+        <span class="font-medium">Créditos:</span>
+        <span id="walletAmount" class="font-semibold text-emerald-700">$0</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6 grid lg:grid-cols-3 gap-6">
+    <!-- Left: Mapa + filtros -->
+    <section class="lg:col-span-2 space-y-4">
+      <div class="border border-sky-100 rounded-2xl bg-white shadow-soft">
+        <div class="p-4 border-b">
+          <div class="flex items-center gap-2 text-slate-800 font-semibold">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5 text-indigo-600"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5 9 6.343 9 8s1.343 3 3 3Zm0 0v10"/></svg>
+            <h2 class="text-base">Mapa (Esquema)</h2>
+          </div>
+          <p class="text-sm text-slate-600 mt-1">Haz clic en un punto para ver el restaurante. Top: Calle 127 · Bottom: Calle 52 · Left: Cra 1 · Right: Autopista Norte.</p>
+        </div>
+        <div class="p-4">
+          <div class="relative mx-auto w-full max-w-4xl">
+            <svg id="mapSvg" viewBox="0 0 100 100" class="w-full h-72 rounded-2xl bg-white border border-sky-100">
+              <!-- Grid -->
+              <g stroke="#e6f0ff" stroke-width="0.5">
+                <g id="vgrid"></g>
+                <g id="hgrid"></g>
+              </g>
+              <!-- Points -->
+              <g id="mapPoints"></g>
+              <!-- Axis labels -->
+              <text x="2" y="4" font-size="3" fill="#0f172a">Calle 127</text>
+              <text x="2" y="98" font-size="3" fill="#0f172a">Calle 52</text>
+              <text x="1" y="8" font-size="3" fill="#0f172a" transform="rotate(-90 2,8)">Cra 1</text>
+              <text x="98" y="8" font-size="3" fill="#0f172a" transform="rotate(-90 98,8)">Autopista Norte</text>
+            </svg>
+          </div>
+
+          <div class="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <label class="relative flex-1">
+              <span class="sr-only">Buscar</span>
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7" stroke-width="2"/><path d="m21 21-3.5-3.5" stroke-width="2"/></svg>
+              <input id="searchInput" class="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Buscar por nombre o dirección"/>
+            </label>
+
+            <label>
+              <select id="cuisineSelect" class="w-full sm:w-56 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="Todas">Todas las cocinas</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="border border-sky-100 rounded-2xl bg-white shadow-soft">
+        <div class="p-4 border-b flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-semibold flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5 text-indigo-600"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+              Restaurantes <span id="countLabel" class="text-slate-500 font-normal"></span>
+            </h3>
+            <p class="text-sm text-slate-600">Todos con <span class="font-semibold text-emerald-700">20% acreditado</span> a tu billetera al pagar.</p>
+          </div>
+        </div>
+        <div id="restaurantsGrid" class="p-4 grid md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      </div>
+    </section>
+
+    <!-- Right: Menú, carrito, billetera -->
+    <aside class="space-y-4">
+      <div class="border border-emerald-100 rounded-2xl bg-white shadow-soft">
+        <div class="p-4 border-b">
+          <h3 class="flex items-center gap-2 font-semibold text-emerald-800">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M5 7v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2Z"/></svg>
+            Tu Billetera
+          </h3>
+          <p class="text-sm text-slate-600">Créditos acumulados por tus compras. Úsalos en cualquier restaurante.</p>
+        </div>
+        <div class="p-4">
+          <div class="rounded-xl bg-emerald-50 border border-emerald-100 p-4 flex items-center justify-between">
+            <div>
+              <div class="text-sm text-emerald-700">Saldo disponible</div>
+              <div id="walletAmount2" class="text-2xl font-semibold text-emerald-800">$0</div>
+            </div>
+            <div class="text-right text-sm text-emerald-700">
+              <div class="font-medium">Recompensa fija</div>
+              <div>+20% por cada pago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border border-indigo-100 rounded-2xl bg-white shadow-soft">
+        <div class="p-4 border-b">
+          <h3 class="flex items-center gap-2 font-semibold text-indigo-800">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M7 6v12m10-12v12M7 10h10M7 14h10"/></svg>
+            Menú seleccionado
+          </h3>
+          <p id="selectedLabel" class="text-sm text-slate-600">Elige un restaurante en el mapa o la lista</p>
+        </div>
+        <div id="menuList" class="p-4 space-y-3 max-h-[22rem] overflow-auto pr-2"></div>
+      </div>
+
+      <div class="border border-slate-200 rounded-2xl bg-white shadow-soft">
+        <div class="p-4 border-b">
+          <h3 class="flex items-center gap-2 font-semibold text-slate-800">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M7 7v10m10-10v10M7 11h10M7 15h10"/></svg>
+            Tu Pedido
+          </h3>
+          <p class="text-sm text-slate-600">Al pagar, recibes <span class="font-semibold text-emerald-700">20% en créditos</span>.</p>
+        </div>
+        <div id="cartList" class="p-4 space-y-3"></div>
+        <div class="p-4 pt-0 space-y-3">
+          <div class="w-full rounded-lg bg-sky-50 border border-sky-100 p-3 text-sm flex items-center justify-between">
+            <span>Subtotal</span>
+            <span id="subtotalLabel" class="font-semibold">$0</span>
+          </div>
+          <div class="w-full rounded-lg bg-emerald-50 border border-emerald-100 p-3 text-sm flex items-center justify-between">
+            <span>Crédito a recibir (20%)</span>
+            <span id="creditEarnedLabel" class="font-semibold text-emerald-700">$0</span>
+          </div>
+          <div class="flex gap-2 w-full">
+            <button id="clearBtn" class="w-1/3 inline-flex items-center justify-center rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">Vaciar</button>
+            <button id="payBtn" class="w-2/3 inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50" disabled>Pagar ahora</button>
+          </div>
+          <p class="text-xs text-slate-500 text-center w-full">El 20% se acredita inmediatamente a tu billetera virtual al confirmar el pago.</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="mx-auto max-w-7xl px-4 pb-10">
+    <div class="border border-slate-200 rounded-2xl bg-white">
+      <div class="p-4 text-xs text-slate-500">
+        Appetece — MVP con datos ficticios y mapa esquemático. Zona: Calle 127 a 52 y Cra 1 a Autopista Norte. Promoción: 20% de crédito al pagar en cualquier restaurante.
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ===== Utilidades =====
+    const $ = (q) => document.querySelector(q);
+    const $$ = (q) => Array.from(document.querySelectorAll(q));
+    const fmtCOP = (n) => n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+    function seededRandom(seed) {
+      let h = 2166136261 >>> 0;
+      for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 2 ** 32;
+    }
+    const rndPick = (arr, r) => arr[Math.floor(r() * arr.length)];
+
+    const CUISINES = ["Colombiana","Italiana","Peruana","Mexicana","Japonesa","Parrilla","Vegetariana","Vegana","Mediterránea","Árabe","India","Tailandesa","Mariscos","Fusión","Café & Brunch"];
+    const PREFIXES = ["Casa","La","El","Don","Doña","Grupo","Vecchia","Sazón","Andes","Sierra","Sabores","Monte","Río","Barrio","Azul","Verde","Brasa","Piedra","Botánica","Paladar"];
+    const SUFFIXES = ["Andina","Bogotá","Norte","127","52","Gourmet","Urbano","Criollo","del Valle","Express","Trattoria","Cevichería","Taquería","Bistró","Parrilla","Nikkei","Café","Pan y Sal","Cocina","Sabores"];
+
+    function genMenu(seed) {
+      const r = seededRandom(seed);
+      const bases = ["Bandeja","Pasta","Ceviche","Taco","Ramen","Curry","Ensalada","Sándwich","Hamburguesa","Arepa","Sopa","Pescado","Pollo","Costillas","Paella","Falafel"];
+      const styles = ["de la casa","andino","clásico","picante","a la brasa","trufa","limón y cilantro","misoyaki","verde","ahumado","mar y tierra","vegano"];
+      const drinks = ["Limonada de coco","Jugo natural","Soda artesanal","Cerveza local","Té frío","Café de origen"];
+      const desserts = ["Postre de maracuyá","Flan de café","Tres leches","Helado artesanal","Brownie tibio"];
+      const items = [];
+      for (let i = 0; i < 5; i++) {
+        const name = `${rndPick(bases, r)} ${rndPick(styles, r)}`;
+        const price = Math.round((25000 + r() * 55000) / 100) * 100; // 25k - 80k
+        items.push({ id: `${seed}-m${i}`, name, price });
+      }
+      items.push({ id: `${seed}-d1`, name: rndPick(drinks, r), price: 12000 + Math.round(r() * 8000 / 100) * 100 });
+      items.push({ id: `${seed}-d2`, name: rndPick(desserts, r), price: 16000 + Math.round(r() * 14000 / 100) * 100 });
+      return items;
+    }
+
+    function makeRestaurants(n=100) {
+      const list = [];
+      for (let i = 1; i <= n; i++) {
+        const rP = seededRandom('p'+i), rS = seededRandom('s'+i), r = seededRandom('r'+i);
+        const name = `${rndPick(PREFIXES, rP)} ${rndPick(SUFFIXES, rS)}`;
+        const cuisine = rndPick(CUISINES, r);
+        const x = Math.round(r() * 100); // 0..100
+        const y = Math.round(r() * 100); // 0..100
+        const calle = 127 - Math.round((75 * y) / 100);
+        const carrera = 1 + Math.round((29 * x) / 100);
+        const address = `Calle ${calle} # ${carrera}-${Math.floor(1 + r() * 80)}`;
+        const priceLevel = 1 + Math.floor(r() * 3);
+        const rating = Math.round((3.8 + r() * 1.2) * 10) / 10;
+        const menu = genMenu('rest'+i);
+        list.push({ id: 'rest-'+i, name, cuisine, address, x, y, priceLevel, rating, menu });
+      }
+      return list;
+    }
+
+    // ===== Estado de la app =====
+    const state = {
+      restaurants: makeRestaurants(100),
+      query: '',
+      cuisine: 'Todas',
+      selectedId: null,
+      cart: [], // {id, name, price, qty, restId}
+      credits: Number(localStorage.getItem('appetece_credits') || 0),
+    };
+
+    // ===== Render helpers =====
+    function updateWallet() {
+      $('#walletAmount').textContent = fmtCOP(state.credits);
+      $('#walletAmount2').textContent = fmtCOP(state.credits);
+      localStorage.setItem('appetece_credits', String(state.credits));
+    }
+
+    function renderGridLines() {
+      const vg = $('#vgrid'); const hg = $('#hgrid');
+      vg.innerHTML = ''; hg.innerHTML = '';
+      [10,20,30,40,50,60,70,80,90].forEach(g => {
+        vg.insertAdjacentHTML('beforeend', `<line x1="${g}" y1="0" x2="${g}" y2="100" />`);
+        hg.insertAdjacentHTML('beforeend', `<line x1="0" y1="${g}" x2="100" y2="${g}" />`);
+      });
+    }
+
+    function priceDots(level) {
+      return `<div class="flex gap-1">${[1,2,3].map(i => `<span class="h-2 w-2 rounded-full ${i<=level? 'bg-emerald-600':'bg-emerald-200'}"></span>`).join('')}</div>`;
+    }
+
+    function filteredRestaurants() {
+      const q = state.query.trim().toLowerCase();
+      return state.restaurants.filter(r => {
+        const byCuisine = state.cuisine === 'Todas' || r.cuisine === state.cuisine;
+        const byQuery = !q || r.name.toLowerCase().includes(q) || r.address.toLowerCase().includes(q);
+        return byCuisine && byQuery;
+      });
+    }
+
+    function renderMapPoints() {
+      const g = $('#mapPoints');
+      g.innerHTML = '';
+      const list = filteredRestaurants();
+      list.forEach(r => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        circle.setAttribute('cx', r.x);
+        circle.setAttribute('cy', r.y);
+        circle.setAttribute('r', 1.8);
+        circle.setAttribute('fill', '#4f46e5');
+        circle.setAttribute('opacity', '0.85');
+        circle.style.cursor = 'pointer';
+        circle.addEventListener('click', () => selectRestaurant(r.id));
+        g.appendChild(circle);
+      });
+    }
+
+    function renderCuisineOptions() {
+      const sel = $('#cuisineSelect');
+      CUISINES.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+      sel.value = state.cuisine;
+    }
+
+    function renderRestaurantsList() {
+      const grid = $('#restaurantsGrid');
+      const list = filteredRestaurants();
+      $('#countLabel').textContent = `(${list.length})`;
+      grid.innerHTML = '';
+      list.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'border rounded-xl p-4 hover:shadow-sm transition cursor-pointer border-slate-200';
+        card.innerHTML = `
+          <div class=\"flex items-start justify-between\">\n            <div class=\"font-medium\">${r.name}</div>\n            <span class=\"inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700\">20% crédito</span>\n          </div>\n          <div class=\"mt-1 text-sm text-slate-600 flex items-center gap-1\">📍 ${r.address}</div>\n          <div class=\"mt-2 flex items-center justify-between\">\n            <div class=\"text-amber-600 text-sm\">★ <span class=\"font-medium\">${r.rating}</span></div>\n            ${priceDots(r.priceLevel)}\n            <span class=\"text-xs rounded-md bg-slate-100 px-2 py-0.5\">${r.cuisine}</span>\n          </div>`;
+        card.addEventListener('click', () => selectRestaurant(r.id));
+        grid.appendChild(card);
+      });
+    }
+
+    function selectRestaurant(id) {
+      state.selectedId = id;
+      const r = state.restaurants.find(x => x.id === id);
+      $('#selectedLabel').textContent = `${r.name} · ${r.cuisine}`;
+      const menuDiv = $('#menuList');
+      menuDiv.innerHTML = '';
+      r.menu.forEach(m => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between rounded-lg border p-2 bg-white';
+        row.innerHTML = `<div><div class=\"font-medium\">${m.name}</div><div class=\"text-sm text-slate-600\">${fmtCOP(m.price)}</div></div>`;
+        const btn = document.createElement('button');
+        btn.className = 'inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700';
+        btn.textContent = 'Agregar';
+        btn.addEventListener('click', () => addToCart(m, r.id));
+        row.appendChild(btn);
+        menuDiv.appendChild(row);
+      });
+      if (window.innerWidth < 1024) {
+        setTimeout(() => document.getElementById('cartList').scrollIntoView({ behavior: 'smooth' }), 50);
+      }
+    }
+
+    function addToCart(item, restId) {
+      const idx = state.cart.findIndex(p => p.id === item.id);
+      if (idx >= 0) state.cart[idx].qty += 1;
+      else state.cart.push({ id: item.id, name: item.name, price: item.price, qty: 1, restId });
+      renderCart();
+    }
+    function inc(id) { const it = state.cart.find(p => p.id === id); if (it) { it.qty++; renderCart(); } }
+    function dec(id) { const i = state.cart.findIndex(p => p.id === id); if (i>=0) { if (state.cart[i].qty>1) state.cart[i].qty--; else state.cart.splice(i,1); renderCart(); } }
+    function clearCart() { state.cart = []; renderCart(); }
+
+    function renderCart() {
+      const list = $('#cartList');
+      list.innerHTML = '';
+      if (state.cart.length === 0) {
+        list.innerHTML = '<div class="text-slate-500">Aún no has agregado productos.</div>';
+      } else {
+        state.cart.forEach(it => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between gap-2 rounded-lg border p-2 bg-white';
+          row.innerHTML = `<div class=\"min-w-0\"><div class=\"font-medium truncate\">${it.name}</div><div class=\"text-sm text-slate-600\">${fmtCOP(it.price)} · x${it.qty}</div></div>`;
+          const ctrls = document.createElement('div');
+          ctrls.className = 'flex items-center gap-1';
+          ctrls.innerHTML = `<button class=\"px-2 py-1 rounded border\">-</button><button class=\"px-2 py-1 rounded border\">+</button>`;
+          ctrls.children[0].addEventListener('click', () => dec(it.id));
+          ctrls.children[1].addEventListener('click', () => inc(it.id));
+          row.appendChild(ctrls);
+          list.appendChild(row);
+        });
+      }
+      const subtotal = state.cart.reduce((s, it) => s + it.price * it.qty, 0);
+      const credit = Math.round(subtotal * 0.20);
+      $('#subtotalLabel').textContent = fmtCOP(subtotal);
+      $('#creditEarnedLabel').textContent = fmtCOP(credit);
+      $('#payBtn').disabled = subtotal === 0;
+    }
+
+    function payNow() {
+      const subtotal = state.cart.reduce((s, it) => s + it.price * it.qty, 0);
+      if (subtotal <= 0) return;
+      const credit = Math.round(subtotal * 0.20);
+      state.credits += credit;
+      updateWallet();
+      clearCart();
+      alert(`Pago realizado ✅\nSe acreditaron ${fmtCOP(credit)} (20%) a tu billetera.`);
+    }
+
+    // ===== Eventos =====
+    $('#searchInput').addEventListener('input', (e) => { state.query = e.target.value; renderRestaurantsList(); renderMapPoints(); });
+    $('#cuisineSelect').addEventListener('change', (e) => { state.cuisine = e.target.value; renderRestaurantsList(); renderMapPoints(); });
+    $('#clearBtn').addEventListener('click', clearCart);
+    $('#payBtn').addEventListener('click', payNow);
+
+    // ===== Init =====
+    function init() {
+      updateWallet();
+      renderGridLines();
+      renderCuisineOptions();
+      renderRestaurantsList();
+      renderMapPoints();
+      if (state.restaurants[0]) selectRestaurant(state.restaurants[0].id);
+      renderCart();
+    }
+    init();
+  </script>
+</body>
+</html>
+
